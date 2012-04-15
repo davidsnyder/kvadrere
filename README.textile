@@ -16,7 +16,7 @@ p. @test/data/admin0_MX.geojson@ contains a single GeoJSON Feature MultiPolygon 
 
 p. You can inspect the file in QGIS: @qgis test/data/admin0_MX.geojson@
 
-!blob/master/test/admin0_MX.png!
+!kvadrere/raw/master/test/admin0_MX.png!
 
 p. Run @./test/test_tile_geometry.sh@ which will produce @mexico_tiles_Z11.geojson@, a FeatureCollection of quadkey tiles at ZL 11.
 
@@ -24,7 +24,7 @@ This script runs @test/tile_geometries.pig@, simple Pig runner script which call
 
 p. Inspect the output in QGIS with @qgis test/mexico_tiles_Z11.geojson@
 
-!blob/master/test/admin0_MX_tiledZ11.png!
+!kvadrere/raw/master/test/admin0_MX_tiledZ11.png!
 
 h4. Notes 
 
