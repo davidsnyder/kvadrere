@@ -51,9 +51,6 @@ import org.json.simple.JSONObject;
   For a geoJSON polygon, the UDF will slice the shape on tile boundaries, yielding (quadkey,polygon_slice) for each portion,
   where polygon_slice is a subgeometry of the parameter with regurgitated properties from its parent, and a new property 'quadkey'.
 
-  RecursivelyTileGeometry returns the same result as TileGeometry, but tiles the polygon from 1 up to zoomLevel, which allows it to save computation because
-  if a larger tile at a lower zoom level does not contain any portion of the polygon, the procedure can exit early without wasting time computing all the smaller tiles at the provided zoomLevel.
-
   If the polygon fills a large portion of its bounding box, this procedure may result in extra work.
 */  
 
@@ -68,8 +65,7 @@ public class RecursivelyTileGeometry extends EvalFunc<DataBag> {
   private static final String GEOM_MULTIPOLYGON  = "MultiPolygon";  
 
   public DataBag exec(Tuple input) throws IOException {
-    if (input == null || input.size() < 2 || input.isNull(0) || input.isNull(1))
-      return null;
+    if (input == null || input.size() < 2 || input.isNull(0) || input.isNull(1)) return null;
 
     DataBag returnKeys = bagFactory.newDefaultBag();
         
@@ -77,15 +73,12 @@ public class RecursivelyTileGeometry extends EvalFunc<DataBag> {
     String zlvl   = input.get(0).toString();
     int zoomLevel = Integer.parseInt(zlvl);
     String jsonBlob = input.get(1).toString();
-
     JSONObject jsonObject = parseJSONString(jsonBlob);
 
     Reader reader = new StringReader(jsonObject.get("geometry").toString());    
     Geometry geom = gjson.read(reader);
     
-    if(zoomLevel < 1 || zoomLevel > 23) return null; //zoomLevel exceeds bounds
-
-    if(geom.isEmpty()) return null; // Stop if the geometry is empty            
+    if(zoomLevel < 1 || zoomLevel > 23 || geom.isEmpty()) return null; //zoomLevel exceeds bounds or geometry is empty
 
     try {
       
@@ -93,6 +86,8 @@ public class RecursivelyTileGeometry extends EvalFunc<DataBag> {
 
         String quadkey = QuadKeyUtils.geoPointToQuadKey(((Point)geom).getX(), ((Point)geom).getY(), zoomLevel);
         JSONObject newJSONObject = setGeometry(geom,jsonObject);
+        
+        ((Map)newJSONObject.get("properties")).put("quadkey",quadkey);
 
         Tuple newQuadKey = tupleFactory.newTuple(2);        
         newQuadKey.set(0, quadkey);
@@ -142,39 +137,58 @@ public class RecursivelyTileGeometry extends EvalFunc<DataBag> {
     return returnKeys;
   }
 
+
+  /**
+     Breaks up @shape into tiles at resolution maxZoom
+
+     * @param quadkey
+     * @param shape
+     * @param properties
+     * @param maxZoom
+     *
+     * @return DataBag of Tuples of geoJSON tiles at resolution maxZoom
+     
+     */
   public DataBag searchTile(String quadkey,Geometry shape,JSONObject properties,int maxZoom) throws IOException {
     DataBag polygonSlices = bagFactory.newDefaultBag();
-    List<String> childKeys;
+    List<String> childKeys = QuadKeyUtils.childrenFor(quadkey);
     
-    if(quadkey.length() == maxZoom) { // If the geometry's bounding box fits entirely within a single tile, then there's no children to grab, just stop and yield this tile
-      childKeys = new ArrayList<String>();
-      childKeys.add(quadkey);
-    } else {
-      childKeys = QuadKeyUtils.childrenFor(quadkey);
-      for(String childKey : childKeys) {
-        Polygon tileBox = QuadKeyUtils.quadKeyToBox(childKey);
-        Geometry polygonSlice = tileBox.intersection(shape);
-        polygonSlice = ( polygonSlice.getGeometryType().equals(GEOM_COLLEC) ? polygonSlice.getEnvelope() : polygonSlice );
+    for(String childKey : childKeys) {
+      Polygon tileBox = QuadKeyUtils.quadKeyToBox(childKey);
+      Geometry polygonSlice = tileBox.intersection(shape);
+      polygonSlice = ( polygonSlice.getGeometryType().equals(GEOM_COLLEC) ? polygonSlice.getEnvelope() : polygonSlice );
         
-        if(polygonSlice.getArea() > 0.0) { // Skip empty punchout polygons (since our bounding box could easily have uncovered tiles)
-          if(childKey.length() == maxZoom) { // We are done, we have found a tile at our desired maxZoom that contains a portion of the initial polygon. Add this polygonSlice to the bag and yield it up.
-            JSONObject newProperties = setGeometry(polygonSlice,properties);
-            Tuple newQuadKey = tupleFactory.newTuple(2);        
-            newQuadKey.set(0, quadkey);
-            newQuadKey.set(1,newProperties.toString());
-            polygonSlices.add(newQuadKey);
-          }
-          else {
-            for(Tuple tuple : searchTile(childKey,polygonSlice,properties,maxZoom)) {
-              polygonSlices.add(tuple);
-            }
+      if(polygonSlice.getArea() > 0.0) { // Skip empty punchout polygons (since our bounding box could easily have uncovered tiles)
+        if(childKey.length() == maxZoom) { // We are done, we have found a tile at our desired maxZoom that contains a portion of the initial polygon.
+          
+          JSONObject newProperties = setGeometry(polygonSlice,properties);
+          ((Map)newProperties.get("properties")).put("quadkey",childKey);
+          
+          Tuple newQuadKey = tupleFactory.newTuple(2);        
+          newQuadKey.set(0, childKey);
+          newQuadKey.set(1,newProperties.toString());
+          polygonSlices.add(newQuadKey);
+        }
+        else {
+          for(Tuple tuple : searchTile(childKey,polygonSlice,properties,maxZoom)) {
+            polygonSlices.add(tuple);
           }
         }
       }
     }
+    
     return polygonSlices;
   }
 
+  /**
+     Sets the "geometry" attribute of JSONObject object to Geometry geom
+
+     * @param Geometry geom
+     * @param JSONObject object
+     *
+     * @return JSONObject object with "geometry" attribute set to the JSON representation of geom
+     
+     */
   public JSONObject setGeometry(Geometry geom, JSONObject object) throws IOException {
     GeometryJSON gjson = new GeometryJSON();    
     StringWriter writer = new StringWriter();
@@ -187,6 +201,14 @@ public class RecursivelyTileGeometry extends EvalFunc<DataBag> {
     return object;
   }
 
+  /**
+     Convenience method for parsing JSON Strings
+
+     * @param jsonBlob
+     *
+     * @return JSONObject representation of jsonBlob String
+     
+     */
   public JSONObject parseJSONString(String jsonBlob) {
     Reader reader = new StringReader(jsonBlob);
     Object jsonObject = JSONValue.parse(reader);
