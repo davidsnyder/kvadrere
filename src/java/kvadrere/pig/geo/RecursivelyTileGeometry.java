@@ -82,25 +82,17 @@ public class RecursivelyTileGeometry extends EvalFunc<DataBag> {
     Reader reader = new StringReader(jsonBlob);
     Object propObject = JSONValue.parse(reader);
     JSONObject properties = (JSONObject) propObject;
-    String geometryType;
 
-    reader = new StringReader(jsonBlob);    
-    Geometry geom;
-
-    try {
-      System.out.println(jsonBlob);
-      System.out.println(properties.toString());
-      geometryType = (String)properties.get("type");
-    }
-    catch(NullPointerException e) { System.out.println("Malformed geometry for geoJSON object"); throw e; }
+    reader = new StringReader(properties.get("geometry").toString());    
+    Geometry geom = gjson.read(reader);
     
     if(zoomLevel < 1 || zoomLevel > 23) return null; //zoomLevel exceeds bounds
 
+    if(geom.isEmpty()) return null; // Stop if the geometry is empty            
+
     try {
       
-      if (geometryType.equals(GEOM_POINT)) { // Point
-
-        geom = gjson.readPoint(reader);        
+      if (geom.getGeometryType().equals(GEOM_POINT)) { // Point
 
         String quadkey = QuadKeyUtils.geoPointToQuadKey(((Point)geom).getX(), ((Point)geom).getY(), zoomLevel);
         JSONObject newProperties = setGeometry(geom,properties);
@@ -111,21 +103,7 @@ public class RecursivelyTileGeometry extends EvalFunc<DataBag> {
         returnKeys.add(newQuadKey);
         
       } else { // Polygon or MultiPolygon
-
-        //Yuck, there's no generic read for Geometry type
-        if(geometryType.equals(GEOM_POLYGON)) {
-          geom = gjson.readPolygon(reader);
-        }
-        else if(geometryType.equals(GEOM_MULTIPOLYGON)) {
-          geom = gjson.readMultiPolygon(reader);
-        }
-        else {
-          System.out.println("Geometry type must be one of [Point,Polygon,MultiPolygon], got '"+geometryType+"'");
-          throw new RuntimeException();
-        }
-
-        if(geom.isEmpty()) return null; // Stop if the geometry is empty        
-
+        
         // getEnvelope() returns a Polygon whose points are (minx, miny), (maxx, miny), (maxx, maxy), (minx, maxy), (minx, miny).              
         Polygon boundingBox = (Polygon)geom.getEnvelope();
         int startZoom = 1;        
@@ -163,7 +141,7 @@ public class RecursivelyTileGeometry extends EvalFunc<DataBag> {
           }
         }
       }
-    } catch (com.vividsolutions.jts.geom.TopologyException e) { System.out.println(e.getMessage()); throws e;}
+    } catch (TopologyException e) { System.out.println(e.getMessage()); throw e;}
     return returnKeys;
   }
 
@@ -203,24 +181,16 @@ public class RecursivelyTileGeometry extends EvalFunc<DataBag> {
   public JSONObject setGeometry(Geometry geom, JSONObject properties) throws IOException {
     GeometryJSON gjson = new GeometryJSON();    
     StringWriter writer = new StringWriter();
-    
-    if(geom.getGeometryType().equals(GEOM_POINT)) {
-      gjson.writePoint((Point)geom,writer);
-    } else if(geom.getGeometryType().equals(GEOM_POLYGON)) {
-      gjson.writePolygon((Polygon)geom,writer);
-    } else if(geom.getGeometryType().equals(GEOM_MULTIPOLYGON)) {
-      gjson.writeMultiPolygon((MultiPolygon)geom,writer);      
-    } else {
-      throw new RuntimeException();
-    }
+
+    gjson.write(geom,writer);
         
     Reader reader = new StringReader(writer.toString());                    
     Object geometryObject = JSONValue.parse(reader);
     JSONObject jsonGeometry = (JSONObject) geometryObject;
         
-    //properties.put("geometry",jsonGeometry);
+    properties.put("geometry",jsonGeometry);
     
-    return jsonGeometry; //properties;
+    return properties;
   }
 
 }
