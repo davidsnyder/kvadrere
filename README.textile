@@ -26,8 +26,7 @@ This script runs @test/tile_geometries.pig@, simple Pig runner script which call
 
 !kvadrere/raw/master/test/admin0_MX_tiledZ11.png!
 
-<pre><code>
-wc -l admin0_MX_tiled_Z11/*
+<pre><code>wc -l admin0_MX_tiled_Z11/*
 6735 admin0_MX_tiled_Z11/part-m-00000
 </code></pre>
 
