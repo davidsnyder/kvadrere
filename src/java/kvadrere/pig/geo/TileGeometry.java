@@ -53,7 +53,7 @@ import org.json.simple.JSONObject;
   If the polygon fills a large portion of its bounding box, this procedure may result in extra work.
 */  
 
-public class RecursivelyTileGeometry extends EvalFunc<DataBag> {
+public class TileGeometry extends EvalFunc<DataBag> {
 
   private static TupleFactory tupleFactory = TupleFactory.getInstance();
   private static BagFactory   bagFactory   = BagFactory.getInstance();
@@ -135,14 +135,14 @@ public class RecursivelyTileGeometry extends EvalFunc<DataBag> {
   }
 
   /**
-     Breaks up @shape into tiles at resolution maxZoom
+     Breaks up @shape into tiles at resolution @maxZoom
 
      * @param quadkey
      * @param shape
      * @param properties
      * @param maxZoom
      *
-     * @return DataBag of Tuples of geoJSON tiles at resolution maxZoom
+     * @return DataBag of Tuples of geoJSON tiles at resolution @maxZoom
      
      */
   public DataBag searchTile(String quadkey,Geometry shape,JSONObject properties,int maxZoom) throws IOException {
