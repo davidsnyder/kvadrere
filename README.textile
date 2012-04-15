@@ -10,9 +10,7 @@ h3. Usage
 
 1. Running @mvn package@ should build the UDF JAR into @target/@
 
-2. @test/test_tile_geometry.sh@ runs the @test/tile_geometries.pig@ runner script and combines the output @part-*@ files into a single GeoJSON feature collection for display in a program like QGIS.
-
-The input is @test/data/admin0_MX.geojson@, which contains a single GeoJSON Feature MultiPolygon for Mexico.
+2. The test input is @test/data/admin0_MX.geojson@, which contains a single GeoJSON Feature MultiPolygon for Mexico.
 
 3. You can inspect the file in QGIS: @qgis test/data/admin0_MX.geojson@
 
@@ -20,7 +18,7 @@ The input is @test/data/admin0_MX.geojson@, which contains a single GeoJSON Feat
 
 4. Run @./test/test_tile_geometry.sh@ which will produce @mexico_tiles_Z11.geojson@, a FeatureCollection of quadkey tiles at ZL 11.
 
-This script runs @test/tile_geometries.pig@, simple Pig runner script which calls out to the TileGeometry UDF:
+This bash script runs @test/tile_geometries.pig@, simple Pig runner script which calls out to the TileGeometry UDF:
 
 5. Inspect the output in QGIS with @qgis test/mexico_tiles_Z11.geojson@
 
