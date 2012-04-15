@@ -78,12 +78,9 @@ public class RecursivelyTileGeometry extends EvalFunc<DataBag> {
     int zoomLevel = Integer.parseInt(zlvl);
     String jsonBlob = input.get(1).toString();
 
-    //get JSON properties, we pass them along and regurgitate them with each new tile geometry
-    Reader reader = new StringReader(jsonBlob);
-    Object propObject = JSONValue.parse(reader);
-    JSONObject properties = (JSONObject) propObject;
+    JSONObject jsonObject = parseJSONString(jsonBlob);
 
-    reader = new StringReader(properties.get("geometry").toString());    
+    Reader reader = new StringReader(jsonObject.get("geometry").toString());    
     Geometry geom = gjson.read(reader);
     
     if(zoomLevel < 1 || zoomLevel > 23) return null; //zoomLevel exceeds bounds
@@ -95,11 +92,11 @@ public class RecursivelyTileGeometry extends EvalFunc<DataBag> {
       if (geom.getGeometryType().equals(GEOM_POINT)) { // Point
 
         String quadkey = QuadKeyUtils.geoPointToQuadKey(((Point)geom).getX(), ((Point)geom).getY(), zoomLevel);
-        JSONObject newProperties = setGeometry(geom,properties);
+        JSONObject newJSONObject = setGeometry(geom,jsonObject);
 
         Tuple newQuadKey = tupleFactory.newTuple(2);        
         newQuadKey.set(0, quadkey);
-        newQuadKey.set(1, newProperties.toString());
+        newQuadKey.set(1, newJSONObject.toString());
         returnKeys.add(newQuadKey);
         
       } else { // Polygon or MultiPolygon
@@ -135,7 +132,7 @@ public class RecursivelyTileGeometry extends EvalFunc<DataBag> {
           for(int tileY = (int)minY; tileY <= (int)maxY; tileY++) {
             String quadkey = QuadKeyUtils.tileXYToQuadKey(tileX,tileY,startZoom);
             // Recursively search for tiles that contain portions of the provided geometry
-            for(Tuple t: searchTile(quadkey,geom,properties,zoomLevel)) {
+            for(Tuple t: searchTile(quadkey,geom,jsonObject,zoomLevel)) {
               returnKeys.add(t);
             }
           }
@@ -178,19 +175,22 @@ public class RecursivelyTileGeometry extends EvalFunc<DataBag> {
     return polygonSlices;
   }
 
-  public JSONObject setGeometry(Geometry geom, JSONObject properties) throws IOException {
+  public JSONObject setGeometry(Geometry geom, JSONObject object) throws IOException {
     GeometryJSON gjson = new GeometryJSON();    
     StringWriter writer = new StringWriter();
 
     gjson.write(geom,writer);
+    JSONObject jsonGeometry = parseJSONString(writer.toString());                    
         
-    Reader reader = new StringReader(writer.toString());                    
-    Object geometryObject = JSONValue.parse(reader);
-    JSONObject jsonGeometry = (JSONObject) geometryObject;
-        
-    properties.put("geometry",jsonGeometry);
+    object.put("geometry",jsonGeometry);
     
-    return properties;
+    return object;
+  }
+
+  public JSONObject parseJSONString(String jsonBlob) {
+    Reader reader = new StringReader(jsonBlob);
+    Object jsonObject = JSONValue.parse(reader);
+    return (JSONObject) jsonObject;
   }
 
 }
