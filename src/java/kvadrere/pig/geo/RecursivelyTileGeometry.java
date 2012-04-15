@@ -137,7 +137,6 @@ public class RecursivelyTileGeometry extends EvalFunc<DataBag> {
     return returnKeys;
   }
 
-
   /**
      Breaks up @shape into tiles at resolution maxZoom
 
@@ -151,32 +150,30 @@ public class RecursivelyTileGeometry extends EvalFunc<DataBag> {
      */
   public DataBag searchTile(String quadkey,Geometry shape,JSONObject properties,int maxZoom) throws IOException {
     DataBag polygonSlices = bagFactory.newDefaultBag();
-    List<String> childKeys = QuadKeyUtils.childrenFor(quadkey);
+
+    if(quadkey.length() == maxZoom) { // We are done, we have found a tile at our desired maxZoom that contains a portion of the initial polygon.
+      if(shape.getArea() > 0.0) { // Skip empty punchout polygons (since our bounding box could easily have uncovered tiles)          
+        JSONObject newProperties = setGeometry(shape,properties);
+        ((Map)newProperties.get("properties")).put("quadkey",quadkey);
+          
+        Tuple newQuadKey = tupleFactory.newTuple(2);        
+        newQuadKey.set(0, quadkey);
+        newQuadKey.set(1,newProperties.toString());
+        polygonSlices.add(newQuadKey);
+      }
+    } else { //Move down to the next 4 child quadkeys 
+      List<String> childKeys = QuadKeyUtils.childrenFor(quadkey);
     
-    for(String childKey : childKeys) {
-      Polygon tileBox = QuadKeyUtils.quadKeyToBox(childKey);
-      Geometry polygonSlice = tileBox.intersection(shape);
-      polygonSlice = ( polygonSlice.getGeometryType().equals(GEOM_COLLEC) ? polygonSlice.getEnvelope() : polygonSlice );
+      for(String childKey : childKeys) {
+        Polygon tileBox = QuadKeyUtils.quadKeyToBox(childKey);
+        Geometry polygonSlice = tileBox.intersection(shape);
+        polygonSlice = ( polygonSlice.getGeometryType().equals(GEOM_COLLEC) ? polygonSlice.getEnvelope() : polygonSlice );
         
-      if(polygonSlice.getArea() > 0.0) { // Skip empty punchout polygons (since our bounding box could easily have uncovered tiles)
-        if(childKey.length() == maxZoom) { // We are done, we have found a tile at our desired maxZoom that contains a portion of the initial polygon.
-          
-          JSONObject newProperties = setGeometry(polygonSlice,properties);
-          ((Map)newProperties.get("properties")).put("quadkey",childKey);
-          
-          Tuple newQuadKey = tupleFactory.newTuple(2);        
-          newQuadKey.set(0, childKey);
-          newQuadKey.set(1,newProperties.toString());
-          polygonSlices.add(newQuadKey);
-        }
-        else {
-          for(Tuple tuple : searchTile(childKey,polygonSlice,properties,maxZoom)) {
-            polygonSlices.add(tuple);
-          }
+        for(Tuple tuple : searchTile(childKey,polygonSlice,properties,maxZoom)) {
+          polygonSlices.add(tuple);
         }
       }
     }
-    
     return polygonSlices;
   }
 
