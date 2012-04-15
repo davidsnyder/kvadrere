@@ -20,7 +20,6 @@ import java.io.IOException;
 import java.io.Reader;
 import java.io.StringReader;
 import java.io.StringWriter;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -58,11 +57,8 @@ public class RecursivelyTileGeometry extends EvalFunc<DataBag> {
 
   private static TupleFactory tupleFactory = TupleFactory.getInstance();
   private static BagFactory   bagFactory   = BagFactory.getInstance();
-  private static GeometryJSON gjson        = new GeometryJSON();    
   private static final String GEOM_POINT   = "Point";
   private static final String GEOM_COLLEC   = "GeometryCollection";  
-  private static final String GEOM_POLYGON  = "Polygon";
-  private static final String GEOM_MULTIPOLYGON  = "MultiPolygon";  
 
   public DataBag exec(Tuple input) throws IOException {
     if (input == null || input.size() < 2 || input.isNull(0) || input.isNull(1)) return null;
@@ -75,7 +71,8 @@ public class RecursivelyTileGeometry extends EvalFunc<DataBag> {
     String jsonBlob = input.get(1).toString();
     JSONObject jsonObject = parseJSONString(jsonBlob);
 
-    Reader reader = new StringReader(jsonObject.get("geometry").toString());    
+    Reader reader = new StringReader(jsonObject.get("geometry").toString());
+    GeometryJSON gjson = new GeometryJSON();        
     Geometry geom = gjson.read(reader);
     
     if(zoomLevel < 1 || zoomLevel > 23 || geom.isEmpty()) return null; //zoomLevel exceeds bounds or geometry is empty
