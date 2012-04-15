@@ -1,6 +1,6 @@
 h1. Kvadrere
 
-Apache Pig UDFs for dividing GeoJSON geometries into square polygons at varying resolutions. 
+Apache Pig UDF for dividing GeoJSON geometries into square polygons at varying resolutions. 
 
 Quadkeys were used as the basis for determining tile resolution (how big the tiles are).  A thorough introduction to quadkeys can be found "here":http://msdn.microsoft.com/en-us/library/bb259689.aspx 
 
@@ -8,48 +8,34 @@ Zoom level for quadkeys ranges from 1 to 23, with 1 being approx. 78km per pixel
 
 h3. Usage
 
-@tile_geometries.pig@ is a simple Pig runner script which calls out to a Java Pig UDF:
+p. Running @mvn package@ should build the UDF JAR into @target/@
 
-@pig -p IN=examples/admin0_MX.geojson -p OUT=examples/admin0_MX_tiled_Z11/ scripts/tile_geometries.pig@
+@test/test_tile_geometry.sh@ runs the above command and combines the @part-*@ files into a single GeoJSON feature collection for display in a program like QGIS.
+
+p. @test/data/admin0_MX.geojson@ contains a single GeoJSON Feature MultiPolygon for Mexico.
+
+p. You can inspect the file in QGIS: @qgis test/data/admin0_MX.geojson@
+
+!test/admin0_MX.png!
+
+p. Run @./test/test_tile_geometry.sh@ which will produce @mexico_tiles_Z11.geojson@, a FeatureCollection of quadkey tiles at ZL 11.
+
+This script runs @test/tile_geometries.pig@, simple Pig runner script which calls out to the TileGeometry UDF:
+
+p. Inspect the output in QGIS with @qgis test/mexico_tiles_Z11.geojson@
+
+!test/admin0_MX_tiledZ11.png!
 
 h4. Notes 
 
-p. Multiple GeoJSON shapes do NOT need to be in a feature collection, just one on each line of the input file. See @examples/@
+p. Multiple GeoJSON shapes do NOT need to be in a feature collection, just one on each line of the input file. See @test/data@
 
 p. For a GeoJSON point, the UDF will compute the quadkey and return tuple (quadkey,point) where point is the GeoJSON Feature with a new attached property 'quadkey'.
 
 p. For a GeoJSON polygon, the UDF will slice the shape on tile boundaries, yielding (quadkey,polygon_slice) for each portion,
    where polygon_slice is a subgeometry of the parent polygon with regurgitated properties from the parent, and a new property 'quadkey'.
- 
-p. The RecursivelyTileGeometry UDF returns the same result as the TileGeometry UDF, but tiles the polygon from 1 up to @zoomLevel@, which allows it to save computation by exiting early for empty tiles that do not overlap the given polygon.
-   If the polygon fills a large portion of its bounding box, this procedure may result in extra work.
-   Where gains are noticed is for irregularly shaped polygons, such as skinny ones that slant diagonally, eg. a feature polygon for Mexico or Norway.
-   For example, given a single line that proceeds diagonally:
 
-<pre><code>*------
-- *   -
--   * -
-------*
-</code></pre>
-
-p. Small tiles are only computed along the line itself, and everywhere else in the bounding box the procedure can exit early.
-   This is a worst case for the TileGeometry UDF.
-
-p. When run using the above command line for the Mexico polygon:
-
-@RecursivelyTileGeometry.java@
-
-<pre><code>real	0m7.992s	user	0m17.557s	sys	0m0.708s	pct	228.57</code></pre>
-
-@TileGeometry.java@
-
-<pre><code>real	1m58.003s	user	2m4.124s	sys	0m1.080s	pct	106.10</code></pre>
-
-
-h4. Notes
-
-The @simple-json@ library I used to re-serialize the JSON escapes forward slashes, but this is valid JSON and any JSON parser should handle them correctly. 
-
+p. The @simple-json@ library I used to re-serialize the JSON escapes forward slashes, but this is valid JSON and any JSON parser should handle them correctly. 
 
 
 One of the meanings of the Norwegian word 'kvadrere' is to divide something into squares. 
