@@ -8,34 +8,40 @@ Zoom level for quadkeys ranges from 1 to 23, with 1 being approx. 78km per pixel
 
 h3. Usage
 
-p. Running @mvn package@ should build the UDF JAR into @target/@
+1. Running @mvn package@ should build the UDF JAR into @target/@
 
-@test/test_tile_geometry.sh@ runs the above command and combines the @part-*@ files into a single GeoJSON feature collection for display in a program like QGIS.
+2. @test/test_tile_geometry.sh@ runs the above command and combines the @part-*@ files into a single GeoJSON feature collection for display in a program like QGIS.
 
-p. @test/data/admin0_MX.geojson@ contains a single GeoJSON Feature MultiPolygon for Mexico.
+@test/data/admin0_MX.geojson@ contains a single GeoJSON Feature MultiPolygon for Mexico.
 
-p. You can inspect the file in QGIS: @qgis test/data/admin0_MX.geojson@
+3. You can inspect the file in QGIS: @qgis test/data/admin0_MX.geojson@
 
 !kvadrere/raw/master/test/admin0_MX.png!
 
-p. Run @./test/test_tile_geometry.sh@ which will produce @mexico_tiles_Z11.geojson@, a FeatureCollection of quadkey tiles at ZL 11.
+4. Run @./test/test_tile_geometry.sh@ which will produce @mexico_tiles_Z11.geojson@, a FeatureCollection of quadkey tiles at ZL 11.
 
 This script runs @test/tile_geometries.pig@, simple Pig runner script which calls out to the TileGeometry UDF:
 
-p. Inspect the output in QGIS with @qgis test/mexico_tiles_Z11.geojson@
+5. Inspect the output in QGIS with @qgis test/mexico_tiles_Z11.geojson@
 
 !kvadrere/raw/master/test/admin0_MX_tiledZ11.png!
 
+<pre><code>
+wc -l admin0_MX_tiled_Z11/*
+6735 admin0_MX_tiled_Z11/part-m-00000
+</code></pre>
+
+The routine has produced 6735 tiles at zoom level 11. 
+
 h4. Notes 
 
-p. Multiple GeoJSON shapes do NOT need to be in a feature collection, just one on each line of the input file. See @test/data@
+Multiple GeoJSON shapes do NOT need to be in a feature collection, just one on each line of the input file. See @test/data@
 
-p. For a GeoJSON point, the UDF will compute the quadkey and return tuple (quadkey,point) where point is the GeoJSON Feature with a new attached property 'quadkey'.
+For a GeoJSON point, the UDF will compute the quadkey and return tuple (quadkey,point) where point is the GeoJSON Feature with a new attached property 'quadkey'.
 
 p. For a GeoJSON polygon, the UDF will slice the shape on tile boundaries, yielding (quadkey,polygon_slice) for each portion,
    where polygon_slice is a subgeometry of the parent polygon with regurgitated properties from the parent, and a new property 'quadkey'.
 
-p. The @simple-json@ library I used to re-serialize the JSON escapes forward slashes, but this is valid JSON and any JSON parser should handle them correctly. 
-
+The @simple-json@ library I used to re-serialize the JSON escapes forward slashes, but this is valid JSON and any JSON parser should handle them correctly. 
 
 One of the meanings of the Norwegian word 'kvadrere' is to divide something into squares. 
